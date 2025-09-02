@@ -2,11 +2,14 @@ package ticket.booking.services;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ticket.booking.entities.Ticket;
+import ticket.booking.entities.Train;
 import ticket.booking.entities.User;
 import ticket.booking.util.UserServiceUtil;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,9 +25,16 @@ public class UserBookingService {
 
     public UserBookingService(User user1) throws IOException {
         this.user = user1; // setting the current user
-        File users = new File(USERS_PATH); //reading the users from the local json file database
-        userList = objectMapper.readValue(users, new TypeReference<List<User>>() {} ); //deserializing the json array to list of users
-        // TypeReference is used to get the type of the generic list at runtime
+        loadUsers();
+    }
+
+    public UserBookingService() throws IOException {
+        loadUsers();
+    }
+
+    public List<User> loadUsers() throws IOException{
+        File users = new File(USERS_PATH);
+        return userList = objectMapper.readValue(users, new TypeReference<List<User>>() {} );
     }
 
     public Boolean loginUser(){
@@ -49,4 +59,37 @@ public class UserBookingService {
         objectMapper.writeValue(usersFile, userList);//writing the list of users to the local json file database
     }
 
+    public void fetchBooking(){
+        user.printTickets();//printing all tickets booked by the user
+    }
+
+    public boolean cancelBooking(String ticketId){
+        try {
+            List<Ticket> tickets = user.getTicketsBooked();//getting the list of tickets booked by the user
+            boolean removed = tickets.removeIf(ticket -> ticket.getTicketId().equals(ticketId));//removing the ticket with the given ticket id from the list of tickets
+            if (removed){
+                user.setTicketsBooked(tickets);//update user's tickets list
+                for(int i=0;i<userList.size();i++){//updating the user in the list of users
+                    if(userList.get(i).getUserId().equals(user.getUserId())){//finding the user in the list of users
+                        userList.set(i,user);//updating the user in the list of users
+                        break;
+                    }
+                }
+
+                saveUserListToFile();//saving the updated list of users to the local json file database
+                return Boolean.TRUE;//returning true if the ticket is removed successfully
+            }return Boolean.FALSE;//returning false if the ticket is not found
+        }catch (IOException ex){//catching any IO exceptions
+            return Boolean.FALSE;//returning false if there is an exception
+        }
+    }
+
+    public List<Train> getTrains(String source,String destination){
+        try{
+            TrainService trainService = new TrainService();
+            return trainService.searchTrains(source, destination);//returning the list of trains from the train service}
+    }catch(IOException ex){
+        System.out.println("Error fetching trains: " + ex.getMessage());
+        return new ArrayList<>();
+    }
 }
